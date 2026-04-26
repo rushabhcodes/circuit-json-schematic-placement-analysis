@@ -4,6 +4,8 @@ export interface SchematicBoxPlacement {
   schY: number
   width: number
   height: number
+  sourceComponentId?: string
+  sourceComponentName?: string
   schematicComponentId?: string
   schematicSymbolId?: string
   subcircuitId?: string
@@ -13,16 +15,21 @@ export interface SchematicBoxPlacementLineItem extends SchematicBoxPlacement {
   lineItemType: "SchematicBoxPlacement"
 }
 
-export interface SchematicBoxOverlap {
-  lineItemType: "SchematicBoxOverlap"
-  firstSchematicBox: SchematicBoxPlacement
-  secondSchematicBox: SchematicBoxPlacement
-  overlapCenter: {
-    schX: number
-    schY: number
-  }
+export interface ComponentOverlap {
+  lineItemType: "ComponentOverlap"
+  firstComponent: SchematicBoxPlacement
+  secondComponent: SchematicBoxPlacement
   overlapWidth: number
   overlapHeight: number
+  correctionSuggestions: OverlapCorrectionSuggestion[]
+}
+
+export interface OverlapCorrectionSuggestion {
+  targetComponentName?: string
+  deltaSchX: number
+  deltaSchY: number
+  newSchX: number
+  newSchY: number
 }
 
 export interface SchematicBoxHasALotOfSurroundingWhitespace {
@@ -40,7 +47,7 @@ export interface CapacitorSymbolHorizontal {
 }
 
 export type SchematicPlacementIssue =
-  | SchematicBoxOverlap
+  | ComponentOverlap
   | SchematicBoxHasALotOfSurroundingWhitespace
   | CapacitorSymbolHorizontal
 

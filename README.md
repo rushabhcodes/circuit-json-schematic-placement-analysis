@@ -1,16 +1,18 @@
 # circuit-json-schematic-placement-analysis
 
-Analyze `circuit-json` schematic placement and report schematic box positions.
+Analyze `circuit-json` schematic placement, report schematic box positions, and
+emit schematic placement issues such as overlapping components.
 
-This is intended for placement-focused diagnostics. The first version only emits
-`<SchematicBoxPlacement />` rows inside `<SchematicBoxPositions>`, while future
-versions can add placement issue nodes such as `<SchematicPlacementIssues>`,
-`<SchematicBoxOverlap />`, and related checks.
+This is intended for placement-focused diagnostics. It emits
+`<SchematicBoxPlacement />` rows inside `<SchematicBoxPositions>` and issue nodes
+inside `<SchematicPlacementIssues>` when problems are detected.
 
 ## Install
 
+Install directly from GitHub codeload:
+
 ```sh
-bun add @tscircuit/circuit-json-schematic-placement-analysis
+bun add https://codeload.github.com/tscircuit/circuit-json-schematic-placement-analysis/tar.gz/refs/heads/main
 ```
 
 ## Minimal Usage
@@ -28,8 +30,14 @@ console.log(analysis.toString())
 
 ```xml
 <SchematicBoxPositions>
-<SchematicBoxPlacement positionAnchor="center" schX="10" schY="-3.125" width="2.5" height="1.25" />
+<SchematicBoxPlacement componentName="U1" positionAnchor="center" schX="10" schY="-3.125" width="2.5" height="1.25" />
 </SchematicBoxPositions>
+<SchematicPlacementIssues>
+<ComponentOverlap component1Name="U1" component2Name="R2" component1SchX="0" component1SchY="0" component2SchX="1" component2SchY="0.5" overlapWidth="0.25" overlapHeight="0.194">
+<OverlapCorrectionSuggestion target="R2" newSchX="1.25" deltaSchX="+0.25" />
+<OverlapCorrectionSuggestion target="R2" newSchY="0.694" deltaSchY="+0.194" />
+</ComponentOverlap>
+</SchematicPlacementIssues>
 ```
 
 ## Test
@@ -37,3 +45,7 @@ console.log(analysis.toString())
 ```sh
 bun test
 ```
+
+SVG snapshot tests use `bun-match-svg`, `circuit-to-svg`, and `stack-svgs`.
+The fixture helper renders the schematic SVG on top and the analyzer output in
+red text underneath so placement issues are easy to inspect visually.

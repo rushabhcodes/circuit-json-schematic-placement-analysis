@@ -1,5 +1,13 @@
-import type { CircuitJson, SchematicBox } from "circuit-json"
+import { cju } from "@tscircuit/circuit-json-util"
 import type {
+  CircuitJson,
+  SchematicBox,
+  SchematicComponent,
+} from "circuit-json"
+import { generateSchematicPlacementIssues } from "./schematic-box-overlap"
+import type {
+  ComponentOverlap,
+  OverlapCorrectionSuggestion,
   SchematicBoxPlacementLineItem,
   SchematicPlacementLineItem,
 } from "./types"
@@ -13,12 +21,53 @@ const fmtNumber = (value: number): string => {
     .replace(/(\.\d*?)0+$/, "$1")
 }
 
+const fmtDelta = (value: number): string => {
+  const formattedValue = fmtNumber(value)
+  return value > 0 ? `+${formattedValue}` : formattedValue
+}
+
 const isSchematicBox = (
   element: CircuitJson[number],
 ): element is SchematicBox => element.type === "schematic_box"
 
+const isSchematicComponent = (
+  element: CircuitJson[number],
+): element is SchematicComponent => element.type === "schematic_component"
+
+const getSourceComponentName = (
+  circuitJson: CircuitJson,
+  sourceComponentId: string | undefined,
+): string | undefined => {
+  if (!sourceComponentId) return undefined
+
+  return cju(circuitJson).source_component.get(sourceComponentId)?.name
+}
+
+const schematicComponentToLineItem = (
+  schematicComponent: SchematicComponent,
+  circuitJson: CircuitJson,
+  schematicBox?: SchematicBox,
+): SchematicBoxPlacementLineItem => ({
+  lineItemType: "SchematicBoxPlacement",
+  positionAnchor: "center",
+  schX: schematicComponent.center.x,
+  schY: schematicComponent.center.y,
+  width: schematicBox?.width ?? schematicComponent.size.width,
+  height: schematicBox?.height ?? schematicComponent.size.height,
+  sourceComponentId: schematicComponent.source_component_id,
+  sourceComponentName: getSourceComponentName(
+    circuitJson,
+    schematicComponent.source_component_id,
+  ),
+  schematicComponentId: schematicComponent.schematic_component_id,
+  schematicSymbolId:
+    schematicBox?.schematic_symbol_id ?? schematicComponent.schematic_symbol_id,
+  subcircuitId: schematicComponent.subcircuit_id ?? schematicBox?.subcircuit_id,
+})
+
 const schematicBoxToLineItem = (
   schematicBox: SchematicBox,
+  circuitJson: CircuitJson,
 ): SchematicBoxPlacementLineItem => ({
   lineItemType: "SchematicBoxPlacement",
   positionAnchor: "center",
@@ -26,22 +75,105 @@ const schematicBoxToLineItem = (
   schY: schematicBox.y,
   width: schematicBox.width,
   height: schematicBox.height,
+  ...getSourceComponentMetadata(schematicBox, circuitJson),
   schematicComponentId: schematicBox.schematic_component_id,
   schematicSymbolId: schematicBox.schematic_symbol_id,
   subcircuitId: schematicBox.subcircuit_id,
 })
 
+const getSourceComponentMetadata = (
+  schematicBox: SchematicBox,
+  circuitJson: CircuitJson,
+): Pick<
+  SchematicBoxPlacementLineItem,
+  "sourceComponentId" | "sourceComponentName"
+> => {
+  if (!schematicBox.schematic_component_id) return {}
+
+  const circuitJsonUtil = cju(circuitJson)
+  const schematicComponent = circuitJsonUtil.schematic_component.get(
+    schematicBox.schematic_component_id,
+  )
+  if (!schematicComponent?.source_component_id) return {}
+
+  const sourceComponent = circuitJsonUtil.source_component.get(
+    schematicComponent.source_component_id,
+  )
+
+  return {
+    sourceComponentId: schematicComponent.source_component_id,
+    sourceComponentName: sourceComponent?.name,
+  }
+}
+
+const addAttr = (
+  attrs: string[],
+  key: string,
+  value: string | number | undefined,
+  options?: { formatDelta?: boolean },
+) => {
+  if (value === undefined) return
+  attrs.push(
+    `${key}="${typeof value === "number" ? (options?.formatDelta ? fmtDelta(value) : fmtNumber(value)) : escapeAttr(value)}"`,
+  )
+}
+
 const lineItemToString = (lineItem: SchematicBoxPlacementLineItem): string => {
-  const attrs = [
-    `positionAnchor="${lineItem.positionAnchor}"`,
-    `schX="${fmtNumber(lineItem.schX)}"`,
-    `schY="${fmtNumber(lineItem.schY)}"`,
-    `width="${fmtNumber(lineItem.width)}"`,
-    `height="${fmtNumber(lineItem.height)}"`,
-  ]
+  const attrs: string[] = []
+
+  addAttr(attrs, "componentName", lineItem.sourceComponentName)
+  addAttr(attrs, "positionAnchor", lineItem.positionAnchor)
+  addAttr(attrs, "schX", lineItem.schX)
+  addAttr(attrs, "schY", lineItem.schY)
+  addAttr(attrs, "width", lineItem.width)
+  addAttr(attrs, "height", lineItem.height)
 
   return `<SchematicBoxPlacement ${attrs.join(" ")} />`
 }
+
+const overlapIssueToString = (issue: ComponentOverlap): string => {
+  const attrs: string[] = []
+
+  addAttr(attrs, "component1Name", issue.firstComponent.sourceComponentName)
+  addAttr(attrs, "component2Name", issue.secondComponent.sourceComponentName)
+  addAttr(attrs, "component1SchX", issue.firstComponent.schX)
+  addAttr(attrs, "component1SchY", issue.firstComponent.schY)
+  addAttr(attrs, "component2SchX", issue.secondComponent.schX)
+  addAttr(attrs, "component2SchY", issue.secondComponent.schY)
+  addAttr(attrs, "overlapWidth", issue.overlapWidth)
+  addAttr(attrs, "overlapHeight", issue.overlapHeight)
+
+  return [
+    `<ComponentOverlap ${attrs.join(" ")}>`,
+    ...issue.correctionSuggestions.map(correctionSuggestionToString),
+    "</ComponentOverlap>",
+  ].join("\n")
+}
+
+const correctionSuggestionToString = (
+  suggestion: OverlapCorrectionSuggestion,
+): string => {
+  const attrs: string[] = []
+
+  addAttr(attrs, "target", suggestion.targetComponentName)
+  if (suggestion.deltaSchX !== 0) {
+    addAttr(attrs, "newSchX", suggestion.newSchX)
+    addAttr(attrs, "deltaSchX", suggestion.deltaSchX, { formatDelta: true })
+  }
+  if (suggestion.deltaSchY !== 0) {
+    addAttr(attrs, "newSchY", suggestion.newSchY)
+    addAttr(attrs, "deltaSchY", suggestion.deltaSchY, { formatDelta: true })
+  }
+
+  return `<OverlapCorrectionSuggestion ${attrs.join(" ")} />`
+}
+
+const escapeAttr = (value: string): string =>
+  value
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
 
 export class SchematicPlacementAnalysis {
   constructor(private readonly lineItems: SchematicPlacementLineItem[]) {}
@@ -55,17 +187,34 @@ export class SchematicPlacementAnalysis {
   }
 
   toString(): string {
+    const schematicBoxPlacements = this.lineItems.filter(
+      (lineItem): lineItem is SchematicBoxPlacementLineItem =>
+        lineItem.lineItemType === "SchematicBoxPlacement",
+    )
+    const issues = this.lineItems.flatMap((lineItem) =>
+      lineItem.lineItemType === "SchematicPlacementIssues"
+        ? lineItem.issues
+        : [],
+    )
+
     return [
       "<SchematicBoxPositions>",
-      ...this.lineItems.map((lineItem) => {
-        switch (lineItem.lineItemType) {
-          case "SchematicBoxPlacement":
-            return lineItemToString(lineItem)
-          default:
-            return ""
-        }
-      }),
+      ...schematicBoxPlacements.map(lineItemToString),
       "</SchematicBoxPositions>",
+      ...(issues.length > 0
+        ? [
+            "<SchematicPlacementIssues>",
+            ...issues.map((issue) => {
+              switch (issue.lineItemType) {
+                case "ComponentOverlap":
+                  return overlapIssueToString(issue)
+                default:
+                  return ""
+              }
+            }),
+            "</SchematicPlacementIssues>",
+          ]
+        : []),
     ].join("\n")
   }
 }
@@ -73,9 +222,38 @@ export class SchematicPlacementAnalysis {
 export const analyzeSchematicPlacement = (
   circuitJson: CircuitJson,
 ): SchematicPlacementAnalysis => {
-  const lineItems = circuitJson
-    .filter(isSchematicBox)
-    .map(schematicBoxToLineItem)
+  const schematicBoxes = circuitJson.filter(isSchematicBox)
+  const schematicComponentIds = new Set(
+    circuitJson
+      .filter(isSchematicComponent)
+      .map((schematicComponent) => schematicComponent.schematic_component_id),
+  )
+  const lineItems = [
+    ...circuitJson.filter(isSchematicComponent).map((schematicComponent) =>
+      schematicComponentToLineItem(
+        schematicComponent,
+        circuitJson,
+        schematicBoxes.find(
+          (schematicBox) =>
+            schematicBox.schematic_component_id ===
+            schematicComponent.schematic_component_id,
+        ),
+      ),
+    ),
+    ...schematicBoxes
+      .filter(
+        (schematicBox) =>
+          !schematicBox.schematic_component_id ||
+          !schematicComponentIds.has(schematicBox.schematic_component_id),
+      )
+      .map((schematicBox) => schematicBoxToLineItem(schematicBox, circuitJson)),
+  ]
+  const issues = generateSchematicPlacementIssues(lineItems)
 
-  return new SchematicPlacementAnalysis(lineItems)
+  return new SchematicPlacementAnalysis([
+    ...lineItems,
+    ...(issues.length > 0
+      ? [{ lineItemType: "SchematicPlacementIssues" as const, issues }]
+      : []),
+  ])
 }
