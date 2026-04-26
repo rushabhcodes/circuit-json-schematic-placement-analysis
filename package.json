@@ -1,0 +1,23 @@
+{
+  "name": "@tscircuit/circuit-json-schematic-placement-analysis",
+  "version": "0.0.1",
+  "type": "module",
+  "module": "lib/index.ts",
+  "files": ["lib"],
+  "scripts": {
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "test": "bun test",
+    "typecheck": "bunx tsc --noEmit"
+  },
+  "dependencies": {
+    "circuit-json": "^0.0.420"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.7",
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
