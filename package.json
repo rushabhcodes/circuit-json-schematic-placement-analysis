@@ -19,8 +19,7 @@
     "typecheck": "bunx tsc --noEmit"
   },
   "dependencies": {
-    "@tscircuit/circuit-json-util": "^0.0.94",
-    "circuit-json": "^0.0.420"
+    "@tscircuit/circuit-json-util": "^0.0.94"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.7",
@@ -64,10 +63,12 @@
     "react-dom": "^19.2.5",
     "schematic-symbols": "^0.0.224",
     "spicey": "^0.0.14",
+    "circuit-json": "^0.0.420",
     "stack-svgs": "^0.0.1",
     "typescript": "^5.9.3"
   },
   "peerDependencies": {
+    "circuit-json": "*",
     "typescript": "^5"
   }
 }
