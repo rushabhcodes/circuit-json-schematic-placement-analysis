@@ -12,7 +12,9 @@ import type {
   OverlapCorrectionSuggestion,
   SchematicBoxPlacementLineItem,
   SchematicPlacementLineItem,
+  VerboseSchematicNetLabel,
 } from "./types"
+import { generateVerboseNetLabelIssues } from "./verbose-net-label"
 
 const fmtNumber = (value: number): string => {
   if (Number.isInteger(value)) return String(value)
@@ -112,12 +114,19 @@ const addAttr = (
   attrs: string[],
   key: string,
   value: string | number | undefined,
-  options?: { formatDelta?: boolean },
+  options?: { formatDelta?: boolean; escape?: boolean },
 ) => {
   if (value === undefined) return
-  attrs.push(
-    `${key}="${typeof value === "number" ? (options?.formatDelta ? fmtDelta(value) : fmtNumber(value)) : escapeAttr(value)}"`,
-  )
+  const stringValue =
+    typeof value === "number"
+      ? options?.formatDelta
+        ? fmtDelta(value)
+        : fmtNumber(value)
+      : options?.escape === false
+        ? value
+        : escapeAttr(value)
+
+  attrs.push(`${key}="${stringValue}"`)
 }
 
 const lineItemToString = (lineItem: SchematicBoxPlacementLineItem): string => {
@@ -164,6 +173,20 @@ const capacitorSymbolHorizontalIssueToString = (
   addAttr(attrs, "height", issue.schematicBox.height)
 
   return `<CapacitorSymbolHorizontal ${attrs.join(" ")} />`
+}
+
+const verboseSchematicNetLabelIssueToString = (
+  issue: VerboseSchematicNetLabel,
+): string => {
+  const attrs: string[] = []
+
+  addAttr(attrs, "message", issue.message, { escape: false })
+  addAttr(attrs, "text", issue.text)
+  addAttr(attrs, "involvedPins", issue.involvedPins.join(","))
+  addAttr(attrs, "schX", issue.schX)
+  addAttr(attrs, "schY", issue.schY)
+
+  return `<VerboseSchematicNetLabel ${attrs.join(" ")} />`
 }
 
 const correctionSuggestionToString = (
@@ -226,6 +249,8 @@ export class SchematicPlacementAnalysis {
                   return overlapIssueToString(issue)
                 case "CapacitorSymbolHorizontal":
                   return capacitorSymbolHorizontalIssueToString(issue)
+                case "VerboseSchematicNetLabel":
+                  return verboseSchematicNetLabelIssueToString(issue)
                 default:
                   return ""
               }
@@ -269,6 +294,7 @@ export const analyzeSchematicPlacement = (
   const issues = [
     ...generateSchematicPlacementIssues(lineItems),
     ...generateCapacitorOrientationIssues(lineItems, circuitJson),
+    ...generateVerboseNetLabelIssues(circuitJson),
   ]
 
   return new SchematicPlacementAnalysis([

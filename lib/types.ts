@@ -46,10 +46,22 @@ export interface CapacitorSymbolHorizontal {
   schematicBox: SchematicBoxPlacement
 }
 
+export interface VerboseSchematicNetLabel {
+  lineItemType: "VerboseSchematicNetLabel"
+  schematicNetLabelId?: string
+  sourceNetId?: string
+  text: string
+  involvedPins: string[]
+  schX: number
+  schY: number
+  message: string
+}
+
 export type SchematicPlacementIssue =
   | ComponentOverlap
   | SchematicBoxHasALotOfSurroundingWhitespace
   | CapacitorSymbolHorizontal
+  | VerboseSchematicNetLabel
 
 export interface SchematicPlacementIssues {
   lineItemType: "SchematicPlacementIssues"
