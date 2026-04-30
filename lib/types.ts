@@ -57,11 +57,33 @@ export interface VerboseSchematicNetLabel {
   message: string
 }
 
+interface BaseSchematicBoxTooWide {
+  schematicBox: SchematicBoxPlacement
+  measuredInnerLabelHorizontalEmptySpace: number
+  maxAllowedInnerLabelHorizontalEmptySpace: number
+  suggestedSchWidth: number
+  message: string
+}
+
+export interface SchematicBoxTooWideForPinHeader
+  extends BaseSchematicBoxTooWide {
+  lineItemType: "SchematicBoxTooWideForPinHeader"
+}
+
+export interface SchematicBoxTooWideForChip extends BaseSchematicBoxTooWide {
+  lineItemType: "SchematicBoxTooWideForChip"
+}
+
+export type SchematicBoxTooWide =
+  | SchematicBoxTooWideForPinHeader
+  | SchematicBoxTooWideForChip
+
 export type SchematicPlacementIssue =
   | ComponentOverlap
   | SchematicBoxHasALotOfSurroundingWhitespace
   | CapacitorSymbolHorizontal
   | VerboseSchematicNetLabel
+  | SchematicBoxTooWide
 
 export interface SchematicPlacementIssues {
   lineItemType: "SchematicPlacementIssues"

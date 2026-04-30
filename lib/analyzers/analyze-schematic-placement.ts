@@ -5,15 +5,20 @@ import type {
   SchematicComponent,
 } from "circuit-json"
 import { generateCapacitorOrientationIssues } from "./capacitor-orientation"
+import {
+  generateSchematicBoxTooWideForChipIssues,
+  generateSchematicBoxTooWideForPinHeaderIssues,
+} from "./schematic-box-sizing"
 import { generateSchematicPlacementIssues } from "./schematic-box-overlap"
 import type {
   CapacitorSymbolHorizontal,
   ComponentOverlap,
   OverlapCorrectionSuggestion,
+  SchematicBoxTooWide,
   SchematicBoxPlacementLineItem,
   SchematicPlacementLineItem,
   VerboseSchematicNetLabel,
-} from "./types"
+} from "../types"
 import { generateVerboseNetLabelIssues } from "./verbose-net-label"
 
 const fmtNumber = (value: number): string => {
@@ -189,6 +194,29 @@ const verboseSchematicNetLabelIssueToString = (
   return `<VerboseSchematicNetLabel ${attrs.join(" ")} />`
 }
 
+const schematicBoxTooWideIssueToString = (
+  issue: SchematicBoxTooWide,
+): string => {
+  const attrs: string[] = []
+
+  addAttr(attrs, "message", issue.message, { escape: false })
+  addAttr(attrs, "componentName", issue.schematicBox.sourceComponentName)
+  addAttr(attrs, "currentSchWidth", issue.schematicBox.width)
+  addAttr(
+    attrs,
+    "measuredInnerLabelHorizontalEmptySpace",
+    issue.measuredInnerLabelHorizontalEmptySpace,
+  )
+  addAttr(
+    attrs,
+    "maxAllowedInnerLabelHorizontalEmptySpace",
+    issue.maxAllowedInnerLabelHorizontalEmptySpace,
+  )
+  addAttr(attrs, "suggestedSchWidth", issue.suggestedSchWidth)
+
+  return `<${issue.lineItemType} ${attrs.join(" ")} />`
+}
+
 const correctionSuggestionToString = (
   suggestion: OverlapCorrectionSuggestion,
 ): string => {
@@ -251,6 +279,9 @@ export class SchematicPlacementAnalysis {
                   return capacitorSymbolHorizontalIssueToString(issue)
                 case "VerboseSchematicNetLabel":
                   return verboseSchematicNetLabelIssueToString(issue)
+                case "SchematicBoxTooWideForPinHeader":
+                case "SchematicBoxTooWideForChip":
+                  return schematicBoxTooWideIssueToString(issue)
                 default:
                   return ""
               }
@@ -295,6 +326,8 @@ export const analyzeSchematicPlacement = (
     ...generateSchematicPlacementIssues(lineItems),
     ...generateCapacitorOrientationIssues(lineItems, circuitJson),
     ...generateVerboseNetLabelIssues(circuitJson),
+    ...generateSchematicBoxTooWideForPinHeaderIssues(lineItems, circuitJson),
+    ...generateSchematicBoxTooWideForChipIssues(lineItems, circuitJson),
   ]
 
   return new SchematicPlacementAnalysis([
