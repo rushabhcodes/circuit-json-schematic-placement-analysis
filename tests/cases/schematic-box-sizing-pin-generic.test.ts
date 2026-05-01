@@ -1,12 +1,14 @@
 import { expect, test } from "bun:test"
 import { analyzeSchematicPlacement } from "lib/index"
-import { createSchematicBoxSizingChipCircuitJson } from "../assets/schematic-box-sizing-chip"
+import { createSchematicBoxSizingGenericCircuitJson } from "../assets/schematic-box-sizing-generic"
 import { createSchematicAnalysisFixtureSvg } from "../fixtures/create-schematic-analysis-fixture-svg"
 
-test("generates a schematic box sizing issue for a chip", async () => {
-  const schematicBoxSizingChipCircuitJson =
-    await createSchematicBoxSizingChipCircuitJson()
-  const analysis = analyzeSchematicPlacement(schematicBoxSizingChipCircuitJson)
+test("generates a schematic box sizing issue for a generic connector", async () => {
+  const schematicBoxSizingGenericCircuitJson =
+    await createSchematicBoxSizingGenericCircuitJson()
+  const analysis = analyzeSchematicPlacement(
+    schematicBoxSizingGenericCircuitJson,
+  )
   const issuesLineItem = analysis
     .getLineItems()
     .find((lineItem) => lineItem.lineItemType === "SchematicPlacementIssues")
@@ -22,24 +24,24 @@ test("generates a schematic box sizing issue for a chip", async () => {
     {
       lineItemType: "GenericSchematicBoxTooWide",
       schematicBox: {
-        sourceComponentName: "U2",
-        width: 3,
+        sourceComponentName: "U3",
+        width: 4.4,
       },
-      measuredInnerLabelHorizontalEmptySpace: 2.1399999999999997,
+      measuredInnerLabelHorizontalEmptySpace: 3.6350000000000007,
       maxAllowedInnerLabelHorizontalEmptySpace: 1,
-      suggestedSchWidth: 1.8600000000000003,
+      suggestedSchWidth: 1.7649999999999997,
       message: "Shrink schematic box width",
     },
   ])
 
   expect(analysis.toString()).toContain(
-    '<GenericSchematicBoxTooWide message="Shrink schematic box width" componentName="U2" currentSchWidth="3" measuredInnerLabelHorizontalEmptySpace="2.14" maxAllowedInnerLabelHorizontalEmptySpace="1" suggestedSchWidth="1.86" />',
+    '<GenericSchematicBoxTooWide message="Shrink schematic box width" componentName="U3" currentSchWidth="4.4" measuredInnerLabelHorizontalEmptySpace="3.635" maxAllowedInnerLabelHorizontalEmptySpace="1" suggestedSchWidth="1.765" />',
   )
-
   expect(
     createSchematicAnalysisFixtureSvg({
-      circuitJson: schematicBoxSizingChipCircuitJson,
+      circuitJson: schematicBoxSizingGenericCircuitJson,
       analysis,
+      height: 900,
     }),
   ).toMatchSvgSnapshot(import.meta.path)
 })
